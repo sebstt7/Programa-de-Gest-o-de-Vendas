@@ -1,13 +1,13 @@
 import sys
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLineEdit, QDoubleSpinBox, QSpinBox, QPushButton,
+    QLineEdit, QDoubleSpinBox, QSpinBox, QPushButton, QCheckBox,
     QTableWidget, QTableWidgetItem, QMessageBox, QAbstractItemView
 )
 
 from produtos import (
     salvar_produto, listar_produtos, buscar_produto_por_id,
-    atualizar_produto, inativar_produto
+    atualizar_produto, inativar_produto, listar_produtos_inativos, reativar_produto
 )
 
 
@@ -17,6 +17,9 @@ class TelaCadastro(QWidget):
         self.produto_em_edicao = None
         self.setWindowTitle("Cadastro de Produtos")
         self.resize(800, 450)
+
+        self.check_inativos = QCheckBox("Mostrar produtos inativos")
+        self.check_inativos.stateChanged.connect(self.alternar_inativos)
 
         self.campo_codigo = QLineEdit()
         self.campo_nome = QLineEdit()
@@ -66,6 +69,7 @@ class TelaCadastro(QWidget):
         esquerda.addWidget(self.botao_salvar)
         esquerda.addWidget(self.botao_novo)
         esquerda.addWidget(self.botao_inativar)
+        esquerda.addWidget(self.check_inativos)
         esquerda.addStretch()
 
         principal = QHBoxLayout(self)
@@ -115,7 +119,11 @@ class TelaCadastro(QWidget):
         self.campo_codigo.setFocus()
 
     def carregar_tabela(self):
-        produtos = listar_produtos()
+        if self.check_inativos.isChecked():
+            produtos = listar_produtos_inativos()
+
+        else:
+            produtos = listar_produtos()
         self.tabela.setRowCount(len(produtos))
         for linha, (id_, codigo, nome, preco, estoque, minimo) in enumerate(produtos):
             valores = [id_, codigo, nome,
@@ -143,23 +151,37 @@ class TelaCadastro(QWidget):
         self.botao_salvar.setText("Salvar alterações")
 
     def inativar(self):
-        if self.produto_em_edicao is None:
-            QMessageBox.warning(self, "Atenção", "Selecione um produto para inativar.")
-            return
+        reativando = self.check_inativos.isChecked()
+        acao = "reativar" if reativando else "inativar"
 
-        resposta = QMessageBox.question(
-            self, "Confirmação", "Deseja realmente inativar este produto?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+        if self.produto_em_edicao is None:
+            QMessageBox.warning(self, "Atenção", f"Selecione um produto para {acao}.")
+            return
+        resposta = QMessageBox.question(self, "Confirmação",
+            f"Tem certeza que deseja {acao} o produto selecionado?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if resposta == QMessageBox.StandardButton.Yes:
             try:
-                inativar_produto(self.produto_em_edicao)
+                if reativando:
+                    reativar_produto(self.produto_em_edicao)
+                else:
+                    inativar_produto(self.produto_em_edicao)
             except Exception as erro:
-                QMessageBox.critical(self, "Erro", f"Falha ao inativar produto: {erro}")
-                return
+                    QMessageBox.critical(self, "Erro", f"Falha ao {acao} produto: {erro}")
+                    return
             self.limpar_campos()
-            self.carregar_tabela()
+            self.carregar_tabela()  
 
+    def alternar_inativos(self, estado):
+        self.limpar_campos()
+        if self.check_inativos.isChecked():
+            self.botao_inativar.setText("Reativar")
+            self.botao_salvar.setEnabled(False)
+        else:
+            self.botao_inativar.setText("Inativar")
+            self.botao_salvar.setEnabled(True)
+        self.carregar_tabela()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
