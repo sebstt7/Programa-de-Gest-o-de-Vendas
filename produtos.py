@@ -13,7 +13,7 @@ def listar_produtos():
     conc = conectar()
     cur = conc.cursor()
     cur.execute("""
-    SELECT id, codigo_barras, nome, preco_venda, preco_custo, estoque_atual, estoque_minimo 
+    SELECT id, codigo_barras, nome, preco_venda, estoque_atual, estoque_minimo 
     FROM produtos
     WHERE ativo = 1
     ORDER BY nome""")
