@@ -7,7 +7,7 @@ def buscar_produto_por_codigo(codigo):
     cur.execute("""
 SELECT id, codigo_barras, nome, preco_venda, estoque_atual
 FROM produtos
-WHERE codigo_barras = ? AND ativo = 1""", (codigo))
+WHERE codigo_barras = ? AND ativo = 1""", (codigo,))
     produto = cur.fetchone()
     conc.close()
     return produto
@@ -27,13 +27,13 @@ def finalizar_venda(itens, forma_pagamento):
             cur.execute("""
                 INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario)
                 VALUES (?, ?, ?, ?)""",
-                (venda_id, i["id"], i["quantidade"], i["preco"]))
+                (venda_id, i["produto_id"], i["quantidade"], i["preco"]))
 
             cur.execute("""
                 UPDATE produtos
                 SET estoque_atual = estoque_atual - ?
                 WHERE id = ? AND estoque_atual >= ?""",
-                (i["quantidade"], i["id"], i["quantidade"]))
+                (i["quantidade"], i["produto_id"], i["quantidade"]))
             if cur.rowcount == 0:
                     raise ValueError(f"Estoque insuficiente para o produto {i['nome']}.")
             cur.execute("""

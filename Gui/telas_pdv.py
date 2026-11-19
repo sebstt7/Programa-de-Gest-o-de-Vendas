@@ -2,15 +2,30 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QMessageBox, QAbstractItemView,
-    QLabel, QComboBox
+    QLabel, QComboBox, QDialog, QDoubleSpinBox
 )
 from PySide6.QtGui import QShortcut, QKeySequence
 
 from vendas import buscar_produto_por_codigo, finalizar_venda
+from cupom import montar_cupom, imprimir_cupom
 
 
 def formatar_reais(centavos):
     return f"R$ {centavos / 100:.2f}".replace(".", ",")
+
+class DialogTroco(QDialog):
+    def __init__(self, total, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Pagamento em dinheiro")
+        self.total = total
+        self.recebido = 0
+        self.troco = 0
+
+        self.label_total = QLabel (f"Total: {formatar_reais(total)}")
+        self.label_total.setStyleSheet("Font-size: 22px; font-wight: bold;")
+
+        self.campo_recebido = QDoubleSpinBox()
+        self.campo_recebido.setDecimals(2)
 
 
 class TelaPDV(QWidget):
@@ -136,27 +151,36 @@ class TelaPDV(QWidget):
                 self.campo_codigo.setFocus()
                 return
         self.nova_venda()
-
+ 
     def finalizar(self):
         if not self.itens:
             self.label_aviso.setText("Nenhum item na venda.")
             self.campo_codigo.setFocus()
             return
 
+        forma = self.combo_pagamento.currentText()
         try:
-            venda_id, total = finalizar_venda(
-                self.itens, self.combo_pagamento.currentText()
-            )
+            venda_id, total = finalizar_venda(self.itens, forma)
         except Exception as erro:
             QMessageBox.critical(self, "Erro", f"Não foi possível finalizar a venda:\n{erro}")
             self.campo_codigo.setFocus()
             return
 
-        QMessageBox.information(
+        texto = montar_cupom(venda_id, self.itens, total, forma)
+
+        resposta = QMessageBox.question(
             self, "Venda concluída",
-            f"Venda nº {venda_id}\nTotal: {formatar_reais(total)}"
+            f"Venda nº {venda_id}\nTotal: {formatar_reais(total)}\n\nImprimir comprovante?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
+        if resposta == QMessageBox.StandardButton.Yes:
+            try:
+                imprimir_cupom(texto, self)
+            except Exception as erro:
+                QMessageBox.warning(self, "Impressão", f"Não foi possível imprimir:\n{erro}")
+
         self.nova_venda()
+    
 
     def nova_venda(self):
         self.itens = []
